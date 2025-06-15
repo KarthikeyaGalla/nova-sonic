@@ -86,10 +86,10 @@ def query_kb_and_ask_claude(query_text: str):
     Returns:
         str: Claude's answer based on the retrieved context.
     """
-    print(f"Querying KB with: {query_text}") # Prints the prompt question
+    print(f"\nQuerying KB with: {query_text}")  # Prints the prompt question
 
     # Step 1: Retrieve context from Knowledge Base
-    # retrieved_text = "No specific information found."
+    retrieved_text = "No specific information found."  # Default value
     try:
         response = runtime_client.retrieve(
             knowledgeBaseId=KNOWLEDGE_BASE_ID,
@@ -101,7 +101,7 @@ def query_kb_and_ask_claude(query_text: str):
             }
         )
 
-        print("\nRetrieved Results from KB:")
+        print("\nRetrieved Results from Knowledge Base:")
         if not response['retrievalResults']:
             print("No relevant results found in the Knowledge Base.")
         else:
@@ -110,17 +110,19 @@ def query_kb_and_ask_claude(query_text: str):
                 source = result['location']['s3Location']['uri']
                 print(f"{idx}. From: {source}\n---\n{content}\n")
             retrieved_text = response["retrievalResults"][0]["content"]["text"]
+            print(f"Retrieved Text (used for Claude): {retrieved_text}")
+
     except Exception as e:
         print(f"Error retrieving from Knowledge Base: {e}")
         print("Proceeding without KB context.")
     
-    # Always print the retrieved text, even if it's the "No specific information found." fallback
-    print(f"Retrieved Text (used for Claude): {retrieved_text}") 
+    # Print the retrieved text
+    print(f"\nRetrieved Text (used for Claude): {retrieved_text}\n") 
 
     # Step 2: Prepare Claude input using Messages API
     prompt = {
         "anthropic_version": "bedrock-2023-05-31",
-        "max_tokens": 50, # Increased max_tokens for more comprehensive answers
+        "max_tokens": 50,
         "temperature": 0.7,
         "messages": [
             {
@@ -128,7 +130,7 @@ def query_kb_and_ask_claude(query_text: str):
                 "content": [
                     {
                         "type": "text",
-                        "text": f"""Use the following context to answer the question in a simple words. If the context does not contain the answer, state that you don't have enough information from the provided context.
+                        "text": f"""Use the following context to answer the question in simple words. If the context does not contain the answer, state that you don't have enough information from the provided context.
                         Context: {retrieved_text}
                         Question: {query_text}"""
                     }
@@ -136,6 +138,10 @@ def query_kb_and_ask_claude(query_text: str):
             }
         ]
     }
+
+    # Print the prompt
+    print("\nPrompt sent to Claude:")
+    print(json.dumps(prompt, indent=4))  # Neatly formatted JSON output
 
     # Step 3: Call Claude 3 Sonnet via Bedrock
     try:
@@ -145,12 +151,19 @@ def query_kb_and_ask_claude(query_text: str):
             accept="application/json",
             body=json.dumps(prompt)
         )
+
         # Step 4: Parse and return Claude's answer
         response_body = json.loads(claude_response["body"].read())
-        return response_body["content"][0]["text"]
+        claude_answer = response_body["content"][0]["text"]
+
+        # Print Claude's answer
+        print("\nClaude's Answer:")
+        print(claude_answer)
+        return claude_answer
     except Exception as e:
         print(f"Error invoking Claude Sonnet: {e}")
         return "I am sorry, I could not generate a response at this time."
+
 
 # --- Nova Sonic Integration for Text-to-Speech and Speech-to-Text ---
 
@@ -536,11 +549,11 @@ async def main():
                 print("No speech detected or transcription was empty. Please try again.")
                 continue
 
-            print(f"\nUser Transcribed: {transcribed_text}")
+            print(f"\nUser Transcribed: {transcribed_text}\n")
 
             # Step 4: Query Knowledge Base and Ask Claude
             claude_answer = query_kb_and_ask_claude(transcribed_text)
-            print(f"\nClaude's Answer (text): {claude_answer}")
+            print(f"\nClaude's Answer (text): {claude_answer}\n")
 
             # Step 5: Generate Audio from Claude's Answer using Nova Sonic
             print("\nGenerating audio response...")
